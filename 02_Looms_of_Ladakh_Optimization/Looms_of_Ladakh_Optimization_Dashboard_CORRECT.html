@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Looms of Ladakh — Optimization Dashboard (CORRECT)</title>
+<meta name="description" content="Resource optimization dashboard for the Okhai e-commerce launch. MILP model maximizing profit across 7 artisan product lines subject to raw material, labor, and minimum SKU constraints.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  /* ══════════════════════════════════════════════════════════════════════
+     DESIGN SYSTEM — Looms of Ladakh Corrected Dashboard
+     ══════════════════════════════════════════════════════════════════════ */
+  :root {
+    --primary:   #2E86AB;
+    --secondary: #A23B72;
+    --accent1:   #F18F01;
+    --accent2:   #C73E1D;
+    --accent3:   #3B1F2B;
+    --success:   #44BBA4;
+    --warning:   #E94F37;
+    --bg:        #FFFFFF;
+    --bg-alt:    #F8F9FA;
+    --bg-dark:   #F0F2F5;
+    --text:      #1A1A2E;
+    --text-muted:#6C757D;
+    --border:    #E9ECEF;
+    --shadow:    0 2px 12px rgba(0,0,0,0.08);
+    --shadow-lg: 0 4px 24px rgba(0,0,0,0.12);
+    --radius:    10px;
+    --radius-lg: 14px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg-alt); color: var(--text); line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── HERO ─────────────────────────────────────────────────────────── */
+  .hero {
+    background: linear-gradient(135deg, var(--accent3) 0%, #1a3a5c 50%, #0d2b45 100%);
+    color: white; padding: 52px 48px 40px;
+    border-bottom: 4px solid var(--accent1);
+    position: relative; overflow: hidden;
+  }
+  .hero::before {
+    content: ''; position: absolute; top: -50%; right: -20%;
+    width: 600px; height: 600px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(241,143,1,0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .hero-tag {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 2.5px;
+    color: var(--accent1); font-weight: 700; margin-bottom: 10px;
+  }
+  .hero h1 {
+    font-size: 36px; font-weight: 900; margin-bottom: 10px;
+    letter-spacing: -0.5px;
+  }
+  .hero p {
+    font-size: 15px; color: rgba(255,255,255,0.72); max-width: 720px;
+    line-height: 1.7;
+  }
+  .hero-meta {
+    display: flex; gap: 12px; margin-top: 22px; flex-wrap: wrap;
+  }
+  .hero-badge {
+    background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.18);
+    padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 600;
+    backdrop-filter: blur(8px); transition: background 0.2s;
+  }
+  .hero-badge:hover { background: rgba(255,255,255,0.18); }
+
+  /* ── CORRECT-STAMP ──────────────────────────────────────────────── */
+  .correct-stamp {
+    display: inline-block; background: rgba(68,187,164,0.15);
+    border: 1px solid rgba(68,187,164,0.35); color: #44BBA4;
+    padding: 4px 12px; border-radius: 6px; font-size: 10px;
+    font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px;
+    margin-top: 16px;
+  }
+
+  /* ── KPI ROW ──────────────────────────────────────────────────────── */
+  .kpi-row {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0; padding: 0; background: var(--bg);
+    border-bottom: 1px solid var(--border);
+  }
+  .kpi {
+    text-align: center; padding: 24px 16px;
+    border-right: 1px solid var(--border);
+    transition: background 0.2s;
+  }
+  .kpi:last-child { border-right: none; }
+  .kpi:hover { background: var(--bg-alt); }
+  .kpi-value {
+    font-size: 30px; font-weight: 900; color: var(--primary);
+    letter-spacing: -0.5px;
+  }
+  .kpi-value.warn  { color: var(--warning); }
+  .kpi-value.good  { color: var(--success); }
+  .kpi-value.amber { color: var(--accent1); }
+  .kpi-label {
+    font-size: 10px; color: var(--text-muted); text-transform: uppercase;
+    letter-spacing: 1.2px; margin-top: 4px; font-weight: 700;
+  }
+  .kpi-sub {
+    font-size: 11px; color: var(--text-muted); margin-top: 2px;
+  }
+
+  /* ── MAIN LAYOUT ──────────────────────────────────────────────────── */
+  .main { padding: 36px 48px; max-width: 1440px; margin: 0 auto; }
+
+  .section-title {
+    font-size: 12px; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 2px; color: var(--text-muted); margin: 40px 0 18px;
+    padding-bottom: 10px; border-bottom: 2px solid var(--primary);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .section-title::before {
+    content: ''; width: 4px; height: 18px; background: var(--primary);
+    border-radius: 2px; display: inline-block;
+  }
+
+  /* ── CARDS ────────────────────────────────────────────────────────── */
+  .card {
+    background: var(--bg); border-radius: var(--radius-lg); padding: 24px;
+    box-shadow: var(--shadow); border: 1px solid var(--border);
+    transition: box-shadow 0.3s, transform 0.2s;
+  }
+  .card:hover {
+    box-shadow: var(--shadow-lg); transform: translateY(-1px);
+  }
+  .card h3 {
+    font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 16px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card h3 .dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--primary);
+    flex-shrink: 0;
+  }
+
+  /* ── GRIDS ──────────────────────────────────────────────────────── */
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+  .grid-2-1 { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+  .span-2 { grid-column: span 2; }
+
+  /* ── CHART WRAPPER ────────────────────────────────────────────────── */
+  .chart-wrap { position: relative; height: 260px; }
+  .chart-wrap.tall { height: 320px; }
+
+  /* ── RESOURCE BARS ─────────────────────────────────────────────────── */
+  .resource-item { margin-bottom: 16px; }
+  .resource-header {
+    display: flex; justify-content: space-between;
+    font-size: 12px; font-weight: 600; margin-bottom: 6px;
+  }
+  .resource-bar-bg {
+    background: var(--bg-dark); border-radius: 5px; height: 12px;
+    overflow: hidden;
+  }
+  .resource-bar-fill {
+    height: 100%; border-radius: 5px;
+    transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .fill-red   { background: linear-gradient(90deg, #E94F37, #ff6b54); }
+  .fill-amber { background: linear-gradient(90deg, #F18F01, #ffab2e); }
+  .fill-green { background: linear-gradient(90deg, #44BBA4, #5fd4bc); }
+  .fill-blue  { background: linear-gradient(90deg, #2E86AB, #4da3c7); }
+  .resource-pct {
+    font-size: 11px; color: var(--text-muted); margin-top: 3px;
+    text-align: right; font-weight: 500;
+  }
+
+  /* ── ECONOMICS TABLE ───────────────────────────────────────────────── */
+  .econ-table {
+    width: 100%; border-collapse: collapse; font-size: 11px;
+  }
+  .econ-table th {
+    background: var(--bg-dark); padding: 10px 10px; text-align: right;
+    font-weight: 700; font-size: 10px; text-transform: uppercase;
+    letter-spacing: 0.6px; color: var(--text-muted);
+    border-bottom: 2px solid var(--border);
+  }
+  .econ-table th:first-child { text-align: left; }
+  .econ-table td {
+    padding: 10px 10px; border-top: 1px solid var(--border);
+    text-align: right; font-variant-numeric: tabular-nums;
+  }
+  .econ-table td:first-child {
+    text-align: left; font-weight: 600; color: var(--text);
+  }
+  .econ-table tr:hover td { background: #fafbfc; }
+  .econ-table .highlight-row td { background: #fffbf0; font-weight: 600; }
+  .econ-table .total-row td {
+    border-top: 2px solid var(--text); font-weight: 800;
+    background: var(--bg-dark);
+  }
+  .type-badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px;
+    font-size: 9px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .type-woven { background: #e8f4fd; color: #1565c0; }
+  .type-knit  { background: #fce4ec; color: #b71c1c; }
+
+  /* ── SCENARIO TABLE ───────────────────────────────────────────────── */
+  .scenario-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .scenario-table th {
+    background: var(--bg-dark); padding: 10px 12px; text-align: left;
+    font-weight: 700; font-size: 10px; text-transform: uppercase;
+    letter-spacing: 0.8px; color: var(--text-muted);
+  }
+  .scenario-table td { padding: 10px 12px; border-top: 1px solid var(--border); }
+  .scenario-table tr:hover td { background: var(--bg-alt); }
+  .badge {
+    padding: 3px 10px; border-radius: 12px; font-size: 10px;
+    font-weight: 700; white-space: nowrap;
+  }
+  .badge-best  { background: #e8f5e9; color: #2e7d32; }
+  .badge-base  { background: #e3f2fd; color: #1565c0; }
+  .badge-worse { background: #fce4ec; color: #b71c1c; }
+  .badge-flat  { background: #f5f5f5; color: #757575; }
+
+  /* ── FINDINGS ─────────────────────────────────────────────────────── */
+  .findings {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 18px;
+  }
+  .finding {
+    background: var(--bg); border-radius: var(--radius-lg); padding: 22px 24px;
+    box-shadow: var(--shadow); border-left: 5px solid var(--primary);
+    transition: box-shadow 0.3s, transform 0.2s;
+  }
+  .finding:hover { box-shadow: var(--shadow-lg); transform: translateY(-1px); }
+  .finding.warn  { border-left-color: var(--warning); }
+  .finding.good  { border-left-color: var(--success); }
+  .finding.amber { border-left-color: var(--accent1); }
+  .finding-num   { font-size: 26px; font-weight: 900; margin-bottom: 4px; }
+  .finding-title { font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+  .finding-body  { font-size: 12px; color: var(--text-muted); line-height: 1.65; }
+
+  /* ── INSIGHT CALLOUT ──────────────────────────────────────────────── */
+  .insight-callout {
+    background: linear-gradient(135deg, #1a3a5c 0%, var(--accent3) 100%);
+    color: white; border-radius: var(--radius-lg); padding: 28px 32px;
+    margin-top: 20px; box-shadow: var(--shadow-lg);
+  }
+  .insight-callout h4 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 2px;
+    color: var(--accent1); font-weight: 700; margin-bottom: 10px;
+  }
+  .insight-callout p {
+    font-size: 14px; line-height: 1.7; color: rgba(255,255,255,0.85);
+  }
+  .insight-callout strong { color: white; }
+
+  /* ── FOOTER ───────────────────────────────────────────────────────── */
+  footer {
+    text-align: center; padding: 28px; font-size: 11px;
+    color: var(--text-muted); border-top: 1px solid var(--border);
+    margin-top: 50px; background: var(--bg);
+  }
+  footer strong { color: var(--text); }
+
+  /* ── RESPONSIVE ────────────────────────────────────────────────────── */
+  @media (max-width: 1100px) {
+    .grid-3 { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 900px) {
+    .grid-3, .grid-2, .grid-2-1 { grid-template-columns: 1fr; }
+    .span-2 { grid-column: span 1; }
+    .main { padding: 20px; }
+    .kpi-row { grid-template-columns: repeat(3, 1fr); }
+    .hero { padding: 32px 24px; }
+    .hero h1 { font-size: 28px; }
+  }
+  @media (max-width: 600px) {
+    .kpi-row { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* ── PRINT ─────────────────────────────────────────────────────────── */
+  @media print {
+    .hero { padding: 24px; }
+    .card:hover { box-shadow: var(--shadow); transform: none; }
+    .finding:hover { box-shadow: var(--shadow); transform: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     HERO
+     ══════════════════════════════════════════════════════════════════════ -->
+<div class="hero">
+  <div class="hero-tag">MBAN · Optimization · IIM Bangalore IMB 935</div>
+  <h1>Looms of Ladakh</h1>
+  <p>Resource optimization model determining the optimal product mix for the Okhai
+     e-commerce launch — maximizing profit subject to raw material, labor, and
+     minimum SKU constraints across 7 artisan product lines.</p>
+  <div class="hero-meta">
+    <span class="hero-badge">📦 7 Products · 177 Units</span>
+    <span class="hero-badge">⚙️ MILP · scipy.optimize.milp</span>
+    <span class="hero-badge">🔁 7 Scenarios</span>
+    <span class="hero-badge">📉 Pareto Frontier</span>
+    <span class="hero-badge">Gavin Shklanka</span>
+  </div>
+  <div class="correct-stamp">✓ Verified · Model-Validated Numbers</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     KPI ROW
+     ══════════════════════════════════════════════════════════════════════ -->
+<div class="kpi-row">
+  <div class="kpi">
+    <div class="kpi-value">₹314,692</div>
+    <div class="kpi-label">Optimal Profit</div>
+    <div class="kpi-sub">Base case MILP solution</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-value warn">99.9%</div>
+    <div class="kpi-label">Knitter-Days</div>
+    <div class="kpi-sub">Binding constraint</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-value warn">99.6%</div>
+    <div class="kpi-label">Woven RM</div>
+    <div class="kpi-sub">Binding — main lever</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-value good">19.9%</div>
+    <div class="kpi-label">Weaver-Days</div>
+    <div class="kpi-sub">Significant slack</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-value amber">84.7%</div>
+    <div class="kpi-label">Knit RM</div>
+    <div class="kpi-sub">15.3% slack remaining</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-value">98</div>
+    <div class="kpi-label">Muffler Units</div>
+    <div class="kpi-sub">Dominant in mix</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     MAIN CONTENT
+     ══════════════════════════════════════════════════════════════════════ -->
+<div class="main">
+
+  <!-- ── SECTION: Optimal Mix & Resources ──────────────────────────── -->
+  <div class="section-title">Optimal Product Mix & Resource Utilization</div>
+  <div class="grid-3">
+    <div class="card">
+      <h3><span class="dot"></span>Optimal Units by Product</h3>
+      <div class="chart-wrap">
+        <canvas id="chartUnits"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <h3><span class="dot" style="background:var(--accent1)"></span>Profit Contribution (₹)</h3>
+      <div class="chart-wrap">
+        <canvas id="chartProfit"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <h3><span class="dot" style="background:var(--warning)"></span>Resource Utilization</h3>
+      <div style="margin-top:8px">
+        <div class="resource-item">
+          <div class="resource-header"><span>Knitter-Days</span><span style="color:var(--warning);font-weight:700">BINDING</span></div>
+          <div class="resource-bar-bg"><div class="resource-bar-fill fill-red" style="width:99.9%"></div></div>
+          <div class="resource-pct">389.8 / 390 days — 99.9%</div>
+        </div>
+        <div class="resource-item">
+          <div class="resource-header"><span>Woven Raw Material</span><span style="color:var(--warning);font-weight:700">BINDING</span></div>
+          <div class="resource-bar-bg"><div class="resource-bar-fill fill-red" style="width:99.6%"></div></div>
+          <div class="resource-pct">14,940 / 15,000g — 99.6%</div>
+        </div>
+        <div class="resource-item">
+          <div class="resource-header"><span>Knit Raw Material</span><span style="color:var(--accent1);font-weight:700">SLACK</span></div>
+          <div class="resource-bar-bg"><div class="resource-bar-fill fill-blue" style="width:84.7%"></div></div>
+          <div class="resource-pct">19,490 / 23,000g — 84.7%</div>
+        </div>
+        <div class="resource-item">
+          <div class="resource-header"><span>Weaver-Days</span><span style="color:var(--success);font-weight:700">SLACK</span></div>
+          <div class="resource-bar-bg"><div class="resource-bar-fill fill-green" style="width:19.9%"></div></div>
+          <div class="resource-pct">29.9 / 150 days — 19.9%</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SECTION: Per-Unit Economics ────────────────────────────────── -->
+  <div class="section-title">Per-Unit Economics</div>
+  <div class="card span-2" style="grid-column: 1 / -1;">
+    <h3><span class="dot" style="background:var(--secondary)"></span>Complete Unit Economics — All Products Profitable</h3>
+    <div style="overflow-x:auto">
+      <table class="econ-table" id="econTable">
+        <thead>
+          <tr>
+            <th style="min-width:90px">Product</th>
+            <th>Type</th>
+            <th>Units</th>
+            <th>RM/Unit (g)</th>
+            <th>Unit Cost (₹)</th>
+            <th>Sell Price (₹)</th>
+            <th>Profit/Unit (₹)</th>
+            <th>Total Profit (₹)</th>
+            <th>Profit/g (₹)</th>
+            <th>Time/Unit</th>
+            <th>Margin</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Shawl</td>
+            <td><span class="type-badge type-woven">Woven</span></td>
+            <td>2</td>
+            <td>510</td>
+            <td>8,638</td>
+            <td>17,276</td>
+            <td>4,319</td>
+            <td>8,638</td>
+            <td>8.47</td>
+            <td>1.02 weaver-d</td>
+            <td>25%</td>
+          </tr>
+          <tr>
+            <td>Stole</td>
+            <td><span class="type-badge type-woven">Woven</span></td>
+            <td>5</td>
+            <td>390</td>
+            <td>6,735</td>
+            <td>13,469</td>
+            <td>3,367</td>
+            <td>16,837</td>
+            <td>8.63</td>
+            <td>0.78 weaver-d</td>
+            <td>25%</td>
+          </tr>
+          <tr class="highlight-row">
+            <td>Scarf</td>
+            <td><span class="type-badge type-woven">Woven</span></td>
+            <td>57</td>
+            <td>210</td>
+            <td>3,881</td>
+            <td>7,761</td>
+            <td>1,940</td>
+            <td>110,594</td>
+            <td>9.24</td>
+            <td>0.42 weaver-d</td>
+            <td>25%</td>
+          </tr>
+          <tr>
+            <td>Sweater</td>
+            <td><span class="type-badge type-knit">Knit</span></td>
+            <td>5</td>
+            <td>320</td>
+            <td>5,880</td>
+            <td>11,760</td>
+            <td>2,940</td>
+            <td>14,700</td>
+            <td>9.19</td>
+            <td>6.40 knitter-d</td>
+            <td>25%</td>
+          </tr>
+          <tr class="highlight-row">
+            <td><strong>Muffler</strong></td>
+            <td><span class="type-badge type-knit">Knit</span></td>
+            <td><strong>98</strong></td>
+            <td>175</td>
+            <td>3,234</td>
+            <td>6,468</td>
+            <td>1,617</td>
+            <td><strong>158,454</strong></td>
+            <td>9.24</td>
+            <td>3.50 knitter-d</td>
+            <td>25%</td>
+          </tr>
+          <tr>
+            <td>Cap</td>
+            <td><span class="type-badge type-knit">Knit</span></td>
+            <td>5</td>
+            <td>75</td>
+            <td>1,386</td>
+            <td>2,772</td>
+            <td>554</td>
+            <td>2,772</td>
+            <td>7.39</td>
+            <td>1.50 knitter-d</td>
+            <td>20%</td>
+          </tr>
+          <tr>
+            <td>Gloves</td>
+            <td><span class="type-badge type-knit">Knit</span></td>
+            <td>5</td>
+            <td>73</td>
+            <td>1,349</td>
+            <td>2,698</td>
+            <td>540</td>
+            <td>2,698</td>
+            <td>7.39</td>
+            <td>1.46 knitter-d</td>
+            <td>20%</td>
+          </tr>
+          <tr class="total-row">
+            <td>TOTAL</td>
+            <td></td>
+            <td><strong>177</strong></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td><strong>₹314,692</strong></td>
+            <td></td>
+            <td></td>
+            <td></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Per-unit economics insight ───────────────────────────────── -->
+  <div class="insight-callout" style="margin-bottom:8px">
+    <h4>📐 Per-Unit Economics Interpretation</h4>
+    <p>
+      <strong>Every product is profitable</strong> — margins range from 20% (Cap, Gloves) to 25% (all others).
+      Despite lower unit profit, <strong>Muffler and Scarf dominate</strong> because they convert scarce
+      resources most efficiently: <strong>₹9.24/gram</strong> of raw material (tied best) and
+      <strong>3.50 knitter-days</strong> per unit (vs. 6.40 for Sweater). The optimizer can't simply
+      pick the highest-margin item — it must respect that <strong>resources are scarce and
+      non-interchangeable</strong> (woven RM ≠ knit RM, weaver-days ≠ knitter-days). Minimum SKU
+      requirements preserve brand breadth across all 7 lines.
+    </p>
+  </div>
+
+  <!-- ── SECTION: Unit Economics Charts ────────────────────────────── -->
+  <div class="section-title">Unit Economics Visualization</div>
+  <div class="grid-2">
+    <div class="card">
+      <h3><span class="dot" style="background:var(--secondary)"></span>Unit Cost vs. Selling Price (₹)</h3>
+      <div class="chart-wrap">
+        <canvas id="chartEcon"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <h3><span class="dot" style="background:var(--accent1)"></span>Profit per Gram of Raw Material (₹/g)</h3>
+      <div class="chart-wrap">
+        <canvas id="chartEfficiency"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SECTION: Profit per Binding Resource ─────────────────────── -->
+  <div class="grid-2" style="margin-top:20px">
+    <div class="card">
+      <h3><span class="dot" style="background:var(--warning)"></span>Profit per Binding-Resource Unit</h3>
+      <div class="chart-wrap">
+        <canvas id="chartBindingResource"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <h3><span class="dot" style="background:var(--success)"></span>Total Profit Contribution</h3>
+      <div class="chart-wrap">
+        <canvas id="chartTotalProfit"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SECTION: Scenario Analysis ────────────────────────────────── -->
+  <div class="section-title">Scenario Analysis</div>
+  <div class="grid-2-1">
+    <div class="card">
+      <h3><span class="dot" style="background:var(--accent2)"></span>Scenario Comparison — Total Profit (₹)</h3>
+      <div class="chart-wrap tall">
+        <canvas id="chartScenario"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <h3><span class="dot"></span>Scenario Summary</h3>
+      <table class="scenario-table">
+        <thead><tr><th>Scenario</th><th>Profit</th><th>Δ%</th><th></th></tr></thead>
+        <tbody>
+          <tr>
+            <td>RM +25% & Labour</td>
+            <td style="font-weight:700">₹377,397</td>
+            <td style="color:var(--success);font-weight:700">+19.9%</td>
+            <td><span class="badge badge-best">Best</span></td>
+          </tr>
+          <tr>
+            <td>Raw Material +25%</td>
+            <td>₹349,617</td>
+            <td style="color:var(--success)">+11.1%</td>
+            <td><span class="badge badge-best">Better</span></td>
+          </tr>
+          <tr>
+            <td>+2 Knitters</td>
+            <td>₹342,473</td>
+            <td style="color:var(--success)">+8.8%</td>
+            <td><span class="badge badge-best">Better</span></td>
+          </tr>
+          <tr>
+            <td>+2W & +2K</td>
+            <td>₹342,473</td>
+            <td style="color:var(--success)">+8.8%</td>
+            <td><span class="badge badge-best">Better</span></td>
+          </tr>
+          <tr>
+            <td><strong>Base Case</strong></td>
+            <td><strong>₹314,692</strong></td>
+            <td>—</td>
+            <td><span class="badge badge-base">Base</span></td>
+          </tr>
+          <tr>
+            <td>+2 Weavers</td>
+            <td>₹314,692</td>
+            <td style="color:var(--text-muted)">0.0%</td>
+            <td><span class="badge badge-flat">No change</span></td>
+          </tr>
+          <tr>
+            <td>RM −25%</td>
+            <td>₹259,481</td>
+            <td style="color:var(--warning);font-weight:700">−17.5%</td>
+            <td><span class="badge badge-worse">Worse</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── SECTION: Sensitivity & Multi-Objective ────────────────────── -->
+  <div class="section-title">Sensitivity Analysis & Multi-Objective</div>
+  <div class="grid-2">
+    <div class="card">
+      <h3><span class="dot" style="background:var(--accent2)"></span>RHS Sensitivity — Profit vs. Resource Multiplier</h3>
+      <div class="chart-wrap">
+        <canvas id="chartSensitivity"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <h3><span class="dot" style="background:var(--success)"></span>Pareto Frontier: Profit vs. RM Efficiency</h3>
+      <div class="chart-wrap">
+        <canvas id="chartPareto"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Pareto Insight Callout ────────────────────────────────────── -->
+  <div class="insight-callout" style="margin-top: 20px;">
+    <h4>🎯 Pareto Message — Robustness, Not a Smooth Trade-off</h4>
+    <p>
+      Unlike textbook multi-objective problems with smooth Pareto frontiers, this model produces a
+      <strong>binary jump</strong>: below α ≈ 0.10, the solver collapses to minimum-SKU quantities
+      (₹62,694 profit, 7,150g RM). Above that threshold, it snaps to the full optimal solution
+      (₹314,692, 34,430g RM). There is <strong>no smooth middle ground</strong> — the integer
+      constraints and binding resource limits create a cliff, not a curve. This tells management
+      that the optimal mix is <strong>robust and stable</strong>: small changes in priorities
+      don't erode the solution. You're either operating at full capacity or you're not.
+    </p>
+  </div>
+
+  <!-- ── SECTION: Key Findings ─────────────────────────────────────── -->
+  <div class="section-title">Key Findings</div>
+  <div class="findings">
+    <div class="finding warn">
+      <div class="finding-num" style="color:var(--warning)">99.9%</div>
+      <div class="finding-title">Knitting Labor is the Real Bottleneck</div>
+      <div class="finding-body">
+        Knitter capacity is fully consumed (389.8/390 days) while weavers sit at just 19.9%
+        utilization. Adding weavers produces <strong>zero</strong> profit gain. Investing in
+        knitters directly relieves the binding constraint.
+      </div>
+    </div>
+    <div class="finding">
+      <div class="finding-num" style="color:var(--primary)">Scarf 57 · Muffler 98</div>
+      <div class="finding-title">Two Products Drive 85% of Profit</div>
+      <div class="finding-body">
+        The MILP concentrates production on Scarves (woven, ₹110K) and Mufflers (knit, ₹158K).
+        Both achieve ₹9.24/gram — the highest raw-material efficiency. All other products
+        are at minimum SKU levels, preserving assortment breadth.
+      </div>
+    </div>
+    <div class="finding good">
+      <div class="finding-num" style="color:var(--success)">Woven RM</div>
+      <div class="finding-title">Woven Raw Material is the Main Resource Lever</div>
+      <div class="finding-body">
+        RHS sensitivity shows woven RM drives profit linearly from ₹245K (at 0.5×) to ₹453K
+        (at 2.0×). Knit RM and knitter-days plateau quickly. <strong>Procurement of woven
+        raw material is Okhai's #1 investment priority.</strong>
+      </div>
+    </div>
+    <div class="finding amber">
+      <div class="finding-num" style="color:var(--accent1)">+19.9%</div>
+      <div class="finding-title">Best Scenario: RM +25% & Labour</div>
+      <div class="finding-body">
+        Combining 25% more raw material with 2 additional knitters and 2 weavers lifts profit
+        to ₹377,397 (+₹62,705). This is the maximum feasible uplift — beyond this, additional
+        resources hit diminishing returns.
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SECTION: Recommendation ───────────────────────────────────── -->
+  <div class="section-title">Strategic Recommendation</div>
+  <div class="insight-callout">
+    <h4>📋 Actionable Recommendations for Okhai Management</h4>
+    <p>
+      <strong>1. Optimize product mix now:</strong> Produce Shawl 2, Stole 5, Scarf 57, Sweater 5,
+      Muffler 98, Cap 5, Gloves 5 for ₹314,692 total profit.<br>
+      <strong>2. Negotiate woven raw material supply:</strong> This is the single highest-leverage resource.
+      Every additional gram drives linear profit gains.<br>
+      <strong>3. Hire/train knitters:</strong> Knitting labor is 99.9% consumed. Adding capacity here
+      unlocks +8.8% profit gain. Weaver hiring adds zero value.<br>
+      <strong>4. Preserve all 7 SKUs:</strong> Minimum quantities protect brand identity and store presence
+      on the Okhai platform without materially sacrificing profit.
+    </p>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     FOOTER
+     ══════════════════════════════════════════════════════════════════════ -->
+<footer>
+  <strong>Looms of Ladakh Optimization Dashboard</strong> · Gavin Shklanka · MBAN ·
+  IIM Bangalore IMB 935 · 2026<br>
+  <span style="font-size:10px;color:#aaa;margin-top:4px;display:inline-block">
+    All numbers verified against scipy.optimize.milp solver output · CORRECT version
+  </span>
+</footer>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     CHART.JS SCRIPTS — All data from verified MILP model output
+     ══════════════════════════════════════════════════════════════════════ -->
+<script>
+/* ── CONSTANTS ─────────────────────────────────────────────────────── */
+const COLORS = ['#2E86AB','#A23B72','#F18F01','#C73E1D','#3B1F2B','#44BBA4','#E94F37'];
+const PRODUCTS = ['Shawl','Stole','Scarf','Sweater','Muffler','Cap','Gloves'];
+
+/* ── Verified model data ──────────────────────────────────────────── */
+const UNITS         = [2, 5, 57, 5, 98, 5, 5];
+const profitPerUnit = [4319.05, 3367.30, 1940.25, 2940.00, 1616.88, 554.30, 539.62];
+const unitCosts     = [8638.10, 6734.60, 3880.50, 5880.00, 3233.75, 1385.75, 1349.05];
+const sellPrices    = [17276.20, 13469.20, 7761.00, 11760.00, 6467.50, 2771.50, 2698.10];
+const rawMat        = [510, 390, 210, 320, 175, 75, 73];
+const totalProfits  = profitPerUnit.map((p,i) => Math.round(p * UNITS[i]));
+
+/* ── Chart defaults ────────────────────────────────────────────────── */
+Chart.defaults.font.family = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
+Chart.defaults.font.size = 11;
+Chart.defaults.color = '#6C757D';
+
+/* ── 1. Optimal Units ──────────────────────────────────────────────── */
+new Chart(document.getElementById('chartUnits'), {
+  type: 'bar',
+  data: {
+    labels: PRODUCTS,
+    datasets: [{
+      label: 'Units Produced',
+      data: UNITS,
+      backgroundColor: COLORS,
+      borderRadius: 6,
+      borderSkipped: false,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      y: { grid: { color: '#F0F0F0' }, title: { display: true, text: 'Units' } },
+      x: { grid: { display: false } }
+    }
+  }
+});
+
+/* ── 2. Profit Contribution (Doughnut) ─────────────────────────────── */
+new Chart(document.getElementById('chartProfit'), {
+  type: 'doughnut',
+  data: {
+    labels: PRODUCTS,
+    datasets: [{
+      data: totalProfits,
+      backgroundColor: COLORS,
+      borderWidth: 2, borderColor: '#fff',
+      hoverOffset: 10,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 }, padding: 8 } },
+      tooltip: {
+        callbacks: {
+          label: ctx => {
+            const pct = (ctx.parsed / totalProfits.reduce((a,b) => a+b, 0) * 100).toFixed(1);
+            return ` ₹${ctx.parsed.toLocaleString('en-IN')} (${pct}%)`;
+          }
+        }
+      }
+    }
+  }
+});
+
+/* ── 3. Unit Cost vs. Selling Price ────────────────────────────────── */
+new Chart(document.getElementById('chartEcon'), {
+  type: 'bar',
+  data: {
+    labels: PRODUCTS,
+    datasets: [
+      { label: 'Unit Cost', data: unitCosts, backgroundColor: '#2E86AB', borderRadius: 4 },
+      { label: 'Selling Price', data: sellPrices, backgroundColor: '#F18F01', borderRadius: 4 }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'top' } },
+    scales: {
+      y: { grid: { color: '#F0F0F0' },
+           ticks: { callback: v => '₹' + v.toLocaleString('en-IN') } },
+      x: { grid: { display: false } }
+    }
+  }
+});
+
+/* ── 4. Profit per Gram ────────────────────────────────────────────── */
+const profitPerGram = profitPerUnit.map((p, i) => +(p / rawMat[i]).toFixed(2));
+new Chart(document.getElementById('chartEfficiency'), {
+  type: 'bar',
+  data: {
+    labels: PRODUCTS,
+    datasets: [{
+      label: 'Profit per gram (₹/g)',
+      data: profitPerGram,
+      backgroundColor: PRODUCTS.map((_, i) =>
+        (i === 2 || i === 4) ? '#E94F37' : '#2E86AB'  // highlight Scarf & Muffler
+      ),
+      borderRadius: 6,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => ` ₹${ctx.parsed.y}/g` } }
+    },
+    scales: {
+      y: { grid: { color: '#F0F0F0' }, title: { display: true, text: '₹ per gram' } },
+      x: { grid: { display: false } }
+    }
+  }
+});
+
+/* ── 5. Profit per Binding-Resource Unit ───────────────────────────── */
+// For woven products: profit per weaver-day consumed
+// For knit products: profit per knitter-day consumed
+const timeBurden = [1.02, 0.78, 0.42, 6.40, 3.50, 1.50, 1.46]; // days per unit
+const profitPerBindingDay = profitPerUnit.map((p, i) => +(p / timeBurden[i]).toFixed(0));
+new Chart(document.getElementById('chartBindingResource'), {
+  type: 'bar',
+  data: {
+    labels: PRODUCTS.map((p, i) =>
+      i < 3 ? `${p} (per weaver-d)` : `${p} (per knitter-d)`
+    ),
+    datasets: [{
+      label: 'Profit per resource-day (₹)',
+      data: profitPerBindingDay,
+      backgroundColor: PRODUCTS.map((_, i) => i < 3 ? '#2E86AB' : '#E94F37'),
+      borderRadius: 6,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => ` ₹${ctx.parsed.y.toLocaleString('en-IN')}/day` } }
+    },
+    scales: {
+      y: { grid: { color: '#F0F0F0' }, title: { display: true, text: '₹ per resource-day' },
+           ticks: { callback: v => '₹' + v.toLocaleString('en-IN') } },
+      x: { grid: { display: false }, ticks: { font: { size: 9 } } }
+    }
+  }
+});
+
+/* ── 6. Total Profit Contribution bar ──────────────────────────────── */
+new Chart(document.getElementById('chartTotalProfit'), {
+  type: 'bar',
+  data: {
+    labels: PRODUCTS,
+    datasets: [{
+      label: 'Total Profit Contribution (₹)',
+      data: totalProfits,
+      backgroundColor: COLORS,
+      borderRadius: 6,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => ` ₹${ctx.parsed.y.toLocaleString('en-IN')}` } }
+    },
+    scales: {
+      y: { grid: { color: '#F0F0F0' }, title: { display: true, text: 'Total Profit (₹)' },
+           ticks: { callback: v => '₹' + (v/1000).toFixed(0) + 'K' } },
+      x: { grid: { display: false } }
+    }
+  }
+});
+
+/* ── 7. Scenario Analysis ──────────────────────────────────────────── */
+const scenarios = [
+  'RM +25% & Labour', 'RM +25%', '+2 Knitters', '+2W & +2K',
+  'Base Case', '+2 Weavers', 'RM −25%'
+];
+const scenProfits = [377397, 349617, 342473, 342473, 314692, 314692, 259481];
+const scenColors = scenProfits.map(v =>
+  v > 314692 * 1.01 ? '#44BBA4' : v < 314692 ? '#C73E1D' : '#2E86AB'
+);
+new Chart(document.getElementById('chartScenario'), {
+  type: 'bar',
+  data: {
+    labels: scenarios,
+    datasets: [{
+      label: 'Total Profit (₹)',
+      data: scenProfits,
+      backgroundColor: scenColors,
+      borderRadius: 5,
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: {
+        label: ctx => ` ₹${Math.round(ctx.parsed.x).toLocaleString('en-IN')}`
+      }}
+    },
+    scales: {
+      x: { grid: { color: '#F0F0F0' },
+           ticks: { callback: v => '₹' + (v/1000).toFixed(0) + 'K' },
+           min: 200000
+      },
+      y: { grid: { display: false }, ticks: { font: { size: 10 } } }
+    }
+  }
+});
+
+/* ── 8. RHS Sensitivity ────────────────────────────────────────────── */
+const factors = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
+const rhsSens = {
+  'Woven RM':     [245282, 280206, 314692, 349617, 384541, 418953, 453364],
+  'Knit RM':      [240903, 293967, 314692, 314692, 314692, 314692, 314692],
+  'Weaver-Days':  [314692, 314692, 314692, 314692, 314692, 314692, 314692],
+  'Knitter-Days': [217680, 259229, 314692, 347030, 347030, 347030, 347030],
+};
+const rhsColors = ['#2E86AB','#E94F37','#44BBA4','#F18F01'];
+new Chart(document.getElementById('chartSensitivity'), {
+  type: 'line',
+  data: {
+    labels: factors.map(f => '×' + f.toFixed(2)),
+    datasets: Object.entries(rhsSens).map(([name, vals], i) => ({
+      label: name, data: vals, borderColor: rhsColors[i],
+      backgroundColor: 'transparent', tension: 0.3, borderWidth: 2.5,
+      pointRadius: 5, pointHoverRadius: 7,
+    }))
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'top', labels: { boxWidth: 12 } },
+      tooltip: { callbacks: {
+        label: ctx => ` ${ctx.dataset.label}: ₹${ctx.parsed.y.toLocaleString('en-IN')}`
+      }}
+    },
+    scales: {
+      y: { grid: { color: '#F0F0F0' },
+           ticks: { callback: v => '₹' + (v/1000).toFixed(0) + 'K' } },
+      x: { grid: { display: false },
+           title: { display: true, text: 'Resource Multiplier' } }
+    }
+  }
+});
+
+/* ── 9. Pareto Frontier ────────────────────────────────────────────── */
+// Corrected Pareto: binary jump, not smooth — reflects robustness
+const paretoData = [
+  {x: 7150,  y: 62.7,  a: 0.00},
+  {x: 7150,  y: 62.7,  a: 0.05},
+  {x: 34345, y: 314.0, a: 0.10},
+  {x: 34430, y: 314.7, a: 0.15},
+  {x: 34430, y: 314.7, a: 0.30},
+  {x: 34430, y: 314.7, a: 0.50},
+  {x: 34430, y: 314.7, a: 0.75},
+  {x: 34430, y: 314.7, a: 1.00},
+];
+new Chart(document.getElementById('chartPareto'), {
+  type: 'scatter',
+  data: {
+    datasets: [{
+      label: 'Pareto Points',
+      data: paretoData.map(p => ({x: p.x, y: p.y})),
+      backgroundColor: paretoData.map(p => {
+        const t = p.a;
+        return `rgba(${Math.round(46 + t*180)}, ${Math.round(134 - t*60)}, ${Math.round(171 - t*100)}, 0.9)`;
+      }),
+      pointRadius: 8, pointHoverRadius: 11,
+    }, {
+      label: 'Base Case (α=1)',
+      data: [{x: 34430, y: 314.7}],
+      backgroundColor: '#E94F37', pointRadius: 12,
+      pointStyle: 'star',
+    }, {
+      label: 'Min SKU (α<0.1)',
+      data: [{x: 7150, y: 62.7}],
+      backgroundColor: '#44BBA4', pointRadius: 12,
+      pointStyle: 'triangle',
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { labels: { boxWidth: 10, filter: item => item.text !== 'Pareto Points' } },
+      tooltip: { callbacks: {
+        label: ctx => ` RM: ${ctx.parsed.x.toLocaleString()}g | Profit: ₹${(ctx.parsed.y*1000).toLocaleString('en-IN')}`
+      }}
+    },
+    scales: {
+      x: { title: { display: true, text: 'Total Raw Material Used (g)' }, grid: { color: '#F0F0F0' } },
+      y: { title: { display: true, text: 'Profit (×1000 ₹)' }, grid: { color: '#F0F0F0' } }
+    }
+  }
+});
+</script>
+</body>
+</html>
